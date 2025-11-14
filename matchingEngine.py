@@ -13,54 +13,79 @@ class Order:
 
 class OrderBook:
     def __init__(self):
-        self.buys: List[Order] = []   # ordens de compra
-        self.sells: List[Order] = []  # ordens de venda
-        self._ts_counter = 0          # gerador de timestamp
-        self.orders_by_id: dict[str, Order] = {}  # id -> Order (somente LIMIT ativas)
+        self.buys: List[Order] = []
+        self.sells: List[Order] = []
+        self._ts_counter = 0      # para timestamp (prioridade temporal)
+        self._id_counter = 0      # para identificador de ordem
+        self.orders_by_id: dict[str, Order] = {}
 
-    # ------------- utilidades básicas -------------
-
+    # gera próximo timestamp lógico (usado por TODAS as ordens)
     def _next_ts(self) -> int:
         self._ts_counter += 1
         return self._ts_counter
 
+    # gera próximo identificador (usado só para LIMIT/PEG)
+    def _next_id(self) -> str:
+        self._id_counter += 1
+        return f"identificador_{self._id_counter}"
+
     def _add_buy_limit(self, order: Order):
         """
-        Insere em self.buys ordenado por:
+        COMPRAS:
         - maior preço primeiro
         - em empate de preço, menor ts (mais antigo) primeiro
         """
         i = 0
         while i < len(self.buys):
             o = self.buys[i]
+
             if order.price > o.price:
+                break            # mais caro: entra antes
+            if order.price < o.price:
+                i += 1
+                continue         # mais barato: vai mais pro fundo
+
+            # mesmo preço -> desempate por tempo
+            if order.ts < o.ts:
                 break
-            if order.price == o.price and order.ts < o.ts:
-                break
+
             i += 1
+
         self.buys.insert(i, order)
 
     def _add_sell_limit(self, order: Order):
         """
-        Insere em self.sells ordenado por:
+        VENDAS:
         - menor preço primeiro
         - em empate de preço, menor ts (mais antigo) primeiro
         """
         i = 0
         while i < len(self.sells):
             o = self.sells[i]
+
             if order.price < o.price:
+                break            # mais barato: entra antes
+            if order.price > o.price:
+                i += 1
+                continue         # mais caro: vai mais pro fundo
+
+            # mesmo preço -> desempate por tempo
+            if order.ts < o.ts:
                 break
-            if order.price == o.price and order.ts < o.ts:
-                break
+
             i += 1
+
         self.sells.insert(i, order)
 
+    # melhor bid só considerando LIMIT "normais" (não pegged)
     def best_bid(self) -> Optional[float]:
-        return self.buys[0].price if self.buys else None
+        prices = [o.price for o in self.buys if o.pegged != "bid"]
+        return max(prices) if prices else None
 
+    # melhor offer só considerando LIMIT "normais" (não pegged)
     def best_offer(self) -> Optional[float]:
-        return self.sells[0].price if self.sells else None
+        prices = [o.price for o in self.sells if o.pegged != "offer"]
+        return min(prices) if prices else None
 
     # ------------- entrada de ordens públicas -------------
 
@@ -175,7 +200,7 @@ class OrderBook:
 
         # se sobrou quantidade, vira buy limit passiva
         if qty > 0:
-            order_id = existing_id or f"identificador_{ts}"
+            order_id = existing_id or self._next_id()
             new_order = Order(
                 order_type="limit",
                 side="buy",
@@ -215,7 +240,7 @@ class OrderBook:
             print(f"Trade, price: {p}, qty: {q}")
 
         if qty > 0:
-            order_id = existing_id or f"identificador_{ts}"
+            order_id = existing_id or self._next_id()
             new_order = Order(
                 order_type="limit",
                 side="sell",
@@ -238,47 +263,70 @@ class OrderBook:
         order = self.orders_by_id.pop(order_id, None)
         if order is None:
             print("Order not found")
-            return
+        else:
+            book_list = self.buys if order.side == "buy" else self.sells
 
-        book_list = self.buys if order.side == "buy" else self.sells
+            for i, o in enumerate(book_list):
+                if o is order:
+                    book_list.pop(i)
+                    print("Order cancelled")
+                    break
+            else:
+                # não achou na lista -> já foi totalmente executada
+                print("Order already filled or not active")
 
-        for i, o in enumerate(book_list):
-            if o is order:
-                book_list.pop(i)
-                print("Order cancelled")
-                return
-
-        # se chegou aqui, a ordem já não estava mais no book (foi totalmente executada)
-        print("Order already filled or not active")
-
+        # SEMPRE depois do cancel, atualiza pegged
         self._update_pegged_to_bid()
         self._update_pegged_to_offer()
 
-    def modify_order(self, order_id: str, new_price: float, new_qty: int):
+    def modify_order_qty_only(self, order_id: str, new_qty: int):
         """
-        Modifica uma LIMIT order ativa:
-        - remove do book,
-        - executa como se fosse uma nova limit (pode gerar trades),
-        - se sobrar qty, entra de novo no book com mesmo id mas novo ts
-          (perde prioridade).
+        Modifica APENAS a quantidade de uma ordem PEGGED.
+        Sintaxe no terminal: modify order <id> <qty>
         """
-        order = self.orders_by_id.pop(order_id, None)
+        order = self.orders_by_id.get(order_id)
         if order is None:
             print("Order not found")
             return
 
-        # remove a ordem antiga da lista (buy ou sell)
+        if order.pegged is None:
+            print("Para ordens limit normais use: modify order <id> <price> <qty>")
+            return
+
+        order.qty = new_qty
+        print(f"Pegged order modified: {order.side} {new_qty} @ {order.price} {order_id}")
+
+    def modify_order(self, order_id: str, new_price: float, new_qty: int):
+        """
+        Modifica uma LIMIT order ativa (normal ou, se chamado, pegged).
+
+        - Para ordens PEGGED: ignora new_price e só muda qty.
+        - Para ordens normais: remove do book, faz matching e reinsere
+          com novo preço/qty e novo ts (perde prioridade).
+        """
+        order = self.orders_by_id.get(order_id)
+        if order is None:
+            print("Order not found")
+            return
+
+        # caso especial: pegged chamada com sintaxe "cheia"
+        if order.pegged is not None:
+            order.qty = new_qty
+            print(f"Pegged order modified: {order.side} {new_qty} @ {order.price} {order_id}")
+            return
+
+        # ---- caso normal: LIMIT não-pegged ----
+        self.orders_by_id.pop(order_id, None)
+
         book_list = self.buys if order.side == "buy" else self.sells
         for i, o in enumerate(book_list):
             if o is order:
                 book_list.pop(i)
                 break
 
-        # novo timestamp => perde prioridade
         ts = self._next_ts()
         side = order.side
 
-        # re-insere passando o mesmo id, usando o matching normal
         if side == "buy":
             self._match_limit_buy(new_price, new_qty, ts, existing_id=order_id)
         else:
@@ -349,7 +397,7 @@ class OrderBook:
             print("Não há bid para fazer peg.")
             return
 
-        order_id = f"order_{ts}"
+        order_id = self._next_id()
         order = Order(
             order_type="limit",
             side="buy",
@@ -369,7 +417,7 @@ class OrderBook:
             print("Não há offer para fazer peg.")
             return
 
-        order_id = f"order_{ts}"
+        order_id = self._next_id()
         order = Order(
             order_type="limit",
             side="sell",
@@ -386,27 +434,52 @@ class OrderBook:
     def _update_pegged_to_bid(self):
         best = self.best_bid()
         if best is None:
+            # não há mais LIMIT de compra "normal": cancela todas as pegged de bid
+            to_delete = []
+            for oid, order in list(self.orders_by_id.items()):
+                if order.side == "buy" and order.pegged == "bid":
+                    # remove do book
+                    for i, o in enumerate(self.buys):
+                        if o is order:
+                            self.buys.pop(i)
+                            break
+                    to_delete.append(oid)
+                    print(f"Pegged order cancelled (no bid reference) {oid}")
+            for oid in to_delete:
+                self.orders_by_id.pop(oid, None)
             return
 
-        # percorre só ordens pegged ao bid
+        # ainda existe bid de referência -> só segue o preço
         for order in list(self.orders_by_id.values()):
             if order.side == "buy" and order.pegged == "bid":
                 if order.price == best:
-                    continue  # já está no preço certo
+                    continue
 
-                # remove da lista de buys
+                # remove ordem antiga
                 for i, o in enumerate(self.buys):
                     if o is order:
                         self.buys.pop(i)
                         break
 
-                # atualiza preço e reinsere mantendo o ts (prioridade antiga)
+                # novo timestamp = chegou AGORA nesse preço
                 order.price = best
+                order.ts = self._next_ts()
                 self._add_buy_limit(order)
 
     def _update_pegged_to_offer(self):
         best = self.best_offer()
         if best is None:
+            to_delete = []
+            for oid, order in list(self.orders_by_id.items()):
+                if order.side == "sell" and order.pegged == "offer":
+                    for i, o in enumerate(self.sells):
+                        if o is order:
+                            self.sells.pop(i)
+                            break
+                    to_delete.append(oid)
+                    print(f"Pegged order cancelled (no offer reference) {oid}")
+            for oid in to_delete:
+                self.orders_by_id.pop(oid, None)
             return
 
         for order in list(self.orders_by_id.values()):
@@ -420,6 +493,7 @@ class OrderBook:
                         break
 
                 order.price = best
+                order.ts = self._next_ts()
                 self._add_sell_limit(order)
 
 # --------- loop de terminal ---------
@@ -471,14 +545,27 @@ def process_line(book: OrderBook, line: str):
         return
 
     if cmd == "modify":
-        # modify order order_1 9.98 200
-        if len(parts) != 5 or parts[1].lower() != "order":
-            print("Uso: modify order <id> <price> <qty>")
+        # dois formatos:
+        # 1) modify order <id> <qty>            -> para PEGGED
+        # 2) modify order <id> <price> <qty>    -> para LIMIT normal
+        if parts[1].lower() != "order":
+            print("Uso: modify order <id> <qty>  OU  modify order <id> <price> <qty>")
             return
-        _, _, order_id, price, qty = parts
-        price = float(price)
-        qty = int(qty)
-        book.modify_order(order_id, price, qty)
+
+        if len(parts) == 4:
+            _, _, order_id, qty = parts
+            qty = int(qty)
+            book.modify_order_qty_only(order_id, qty)
+            return
+
+        if len(parts) == 5:
+            _, _, order_id, price, qty = parts
+            price = float(price)
+            qty = int(qty)
+            book.modify_order(order_id, price, qty)
+            return
+
+        print("Uso: modify order <id> <qty>  OU  modify order <id> <price> <qty>")
         return
     
     if cmd == "peg":
@@ -492,21 +579,35 @@ def process_line(book: OrderBook, line: str):
         return
 
 
-    print("Comando desconhecido. Exemplos:")
-    print("  limit buy 10 100")
-    print("  market sell 50")
+    print("\nComando desconhecido.")
+    print("Comandos disponíveis (formato genérico):")
+    print("  limit  <buy/sell> <preço> <qty>")
+    print("  market <buy/sell> <qty>")
+    print("  peg    <bid/offer> <buy/sell> <qty>")
+    print("  modify order <id> <qty>                (peg)")
+    print("  modify order <id> <preço> <qty>        (limit)")
+    print("  cancel order <id>")
     print("  print book")
-    print("  exit")
-
+    print("  exit\n")
 
 if __name__ == "__main__":
     book = OrderBook()
-    print("Matching Engine simples. Comandos:")
-    print("  tipo side price(ponto como separador) qty")
-    print("  limit buy 10 100")
-    print("  market sell 50")
-    print("  print book")
-    print("  exit")
+
+    print("=" * 68)
+    print("              Exercício de Programa da Morgan Stanley")
+    print("                  Order Matching System (1 ativo)")
+    print("=" * 68)
+    print("Comandos básicos:")
+    print("  limit          <buy/sell> <preço> <qty>      -> ordem limite")
+    print("  market         <buy/sell> <qty>              -> ordem a mercado")
+    print("  peg            <bid/offer> <buy/sell> <qty>  -> ordem pegged")
+    print("  modify order   <id> <qty>                    -> altera qty de peg")
+    print("  modify order   <id> <preço> <qty>            -> altera limit")
+    print("  cancel order   <id>                          -> cancela ordem")
+    print("  print book                                   -> mostra o livro")
+    print("  exit                                         -> sai do programa")
+    print("=" * 68)
+
     while True:
         try:
             line = input(">>> ")
