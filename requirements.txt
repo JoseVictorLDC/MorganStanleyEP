@@ -1,0 +1,2 @@
+# Desenvolvido e testado em:
+# python==3.11
