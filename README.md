@@ -16,7 +16,7 @@ MorganStanleyEP/
 │
 ├── requirements.txt    # dependências (padrão: apenas stdlib)
 └── README.md
-
+```
 ---
 
 ## Como rodar
@@ -36,7 +36,7 @@ python -m pip install -r requirements.txt
 python -m src.cli
 # ou
 python src/cli.py
-
+```
 ---
 
 ## Comandos principais do sistema
