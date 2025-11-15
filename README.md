@@ -44,26 +44,45 @@ python src/cli.py
 Comandos disponíveis
 
 Ordem limit:
+```bash
 limit <buy/sell> <preço> <qty>
+```
 
 Ordem market:
+```bash
 market <buy/sell> <qty>
+```
 
 Ordem pegged:
+```bash
 peg <bid/offer> <buy/sell> <qty>
+```
 
 Modificar ordem pegged (somente quantidade):
+```bash
 modify order <id> <qty>
+```
 
 Modificar ordem limit (preço e quantidade):
+```bash
 modify order <id> <preço> <qty>
+```
 
 Cancelar ordem:
+```bash
 cancel order <id>
+```
 
 Mostrar livro de ofertas:
+```bash
 print book
+```
 
 Sair do programa:
+```bash
 exit
+```
+```bash
 quit
+```
+
