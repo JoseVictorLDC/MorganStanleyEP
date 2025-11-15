@@ -7,69 +7,63 @@ Objetivo: receber ordens de compra e venda via terminal, cruzá-las de forma jus
 
 ## Estrutura do projeto
 
-morgan-matching-engine/
-├─ src/
-│  ├─ models.py       # dataclass Order
-│  ├─ order_book.py   # classe OrderBook e lógica de matching
-│  └─ cli.py          # interface de linha de comando (loop do terminal)
-├─ requirements.txt   # dependências (apenas stdlib, mantido por padrão)
-└─ README.md
+```text
+MorganStanleyEP/
+├── src/
+│   ├── models.py       # dataclass Order
+│   ├── order_book.py   # OrderBook e lógica de matching
+│   └── cli.py          # interface de linha de comando (CLI)
+│
+├── requirements.txt    # dependências (padrão: apenas stdlib)
+└── README.md
 
 ---
 
 ## Como rodar
 
-1. Instalar Python 3.10+ (marcar “Add python.exe to PATH” no Windows).
-2. Clonar o repositório:
+```bash
+# 1. Instalar Python 3.10+
+#    (no Windows marcar: "Add python.exe to PATH")
 
-   git clone https://github.com/<seu-usuario>/morgan-matching-engine.git
-   cd morgan-matching-engine
+# 2. Clonar o repositório
+git clone https://github.com/JoseVictorLDC/MorganStanleyEP.git
+cd MorganStanleyEP
 
-3. (Opcional) instalar dependências:
+# 3. (Opcional) instalar dependências
+python -m pip install -r requirements.txt
 
-   python -m pip install -r requirements.txt
-
-4. Executar o CLI:
-
-   python -m src.cli
-   # ou
-   python src/cli.py
+# 4. Executar o CLI
+python -m src.cli
+# ou
+python src/cli.py
 
 ---
 
 ## Comandos principais do sistema
 
-Todos os comandos são digitados no prompt `>>>`.
+Comandos disponíveis
 
-- Ordem **limit**:
+Ordem limit:
+limit <buy/sell> <preço> <qty>
 
-    limit <buy/sell> <preço> <qty>
+Ordem market:
+market <buy/sell> <qty>
 
-- Ordem **market**:
+Ordem pegged:
+peg <bid/offer> <buy/sell> <qty>
 
-    market <buy/sell> <qty>
+Modificar ordem pegged (somente quantidade):
+modify order <id> <qty>
 
-- Ordem **pegged** (segue melhor bid/offer):
+Modificar ordem limit (preço e quantidade):
+modify order <id> <preço> <qty>
 
-    peg <bid/offer> <buy/sell> <qty>
+Cancelar ordem:
+cancel order <id>
 
-- Modificar **ordem pegged** (só quantidade):
+Mostrar livro de ofertas:
+print book
 
-    modify order <id> <qty>
-
-- Modificar **ordem limit** (preço e quantidade):
-
-    modify order <id> <preço> <qty>
-
-- Cancelar ordem:
-
-    cancel order <id>
-
-- Mostrar livro de ofertas:
-
-    print book
-
-- Sair do programa:
-
-    exit
-    quit
+Sair do programa:
+exit
+quit
