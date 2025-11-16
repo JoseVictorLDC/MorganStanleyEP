@@ -42,22 +42,16 @@ def add_sell_limit(book, order: Order):
 
 # Processa uma ordem limit de compra
 def match_limit_buy(book, price: float, qty: int, ts: int, existing_order: Optional[Order] = None):
-    trades = {}
     while qty > 0 and book.sells and book.sells[0].price <= price:
         best = book.sells[0]
         trade_qty = min(qty, best.qty)
         trade_price = best.price
-
-        trades[trade_price] = trades.get(trade_price, 0) + trade_qty
+        print(f"Trade, price: {trade_price}, qty: {trade_qty}")
 
         qty -= trade_qty
         best.qty -= trade_qty
-
         if best.qty == 0:
             book.sells.pop(0)
-
-    for p, q in trades.items():
-        print(f"Trade, price: {p}, qty: {q}")
 
     if qty > 0:
         if existing_order is None:
@@ -86,22 +80,16 @@ def match_limit_buy(book, price: float, qty: int, ts: int, existing_order: Optio
 
 # Processa uma ordem limit de venda
 def match_limit_sell(book, price: float, qty: int, ts: int, existing_order: Optional[Order] = None):
-    trades = {}
     while qty > 0 and book.buys and book.buys[0].price >= price:
         best = book.buys[0]
         trade_qty = min(qty, best.qty)
         trade_price = best.price
-
-        trades[trade_price] = trades.get(trade_price, 0) + trade_qty
+        print(f"Trade, price: {trade_price}, qty: {trade_qty}")
 
         qty -= trade_qty
         best.qty -= trade_qty
-
         if best.qty == 0:
             book.buys.pop(0)
-
-    for p, q in trades.items():
-        print(f"Trade, price: {p}, qty: {q}")
 
     if qty > 0:
         if existing_order is None:
