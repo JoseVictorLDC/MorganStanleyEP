@@ -37,13 +37,23 @@ class OrderBook:
 
     # Retorna o melhor preço de compra não pegged
     def best_bid(self) -> Optional[float]:
-        prices = [o.price for o in self.buys if o.pegged != "bid"]
-        return max(prices) if prices else None
+        best = None
+        for o in self.buys:
+            if o.pegged == "bid" or o.price is None:
+                continue
+            if best is None or o.price > best:
+                best = o.price
+        return best
 
     # Retorna o melhor preço de venda não pegged
     def best_offer(self) -> Optional[float]:
-        prices = [o.price for o in self.sells if o.pegged != "offer"]
-        return min(prices) if prices else None
+        best = None
+        for o in self.sells:
+            if o.pegged == "offer" or o.price is None:
+                continue
+            if best is None or o.price < best:
+                best = o.price
+        return best
 
     # Imprime o livro de ordens em formato tabular
     def print_book(self):

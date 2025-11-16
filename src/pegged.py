@@ -60,60 +60,72 @@ def create_pegged_offer_sell(book, qty: int, ts: int):
 def update_pegged_to_bid(book):
     best = book.best_bid()
     if best is None:
-        to_delete = []
-        for oid, order in list(book.orders_by_id.items()):
-            if order.side == "buy" and order.pegged == "bid":
-                for i, o in enumerate(book.buys):
-                    if o is order:
-                        book.buys.pop(i)
-                        break
-                to_delete.append(oid)
-                print(f"Pegged order cancelled (no bid reference) {oid}")
-        for oid in to_delete:
-            book.orders_by_id.pop(oid, None)
+        new_buys = []
+        for o in book.buys:
+            if o.pegged == "bid":
+                if o.id is not None:
+                    book.orders_by_id.pop(o.id, None)
+                print(f"Pegged order cancelled (no bid reference) {o.id}")
+            else:
+                new_buys.append(o)
+        book.buys = new_buys
         return
 
-    for order in list(book.orders_by_id.values()):
-        if order.side == "buy" and order.pegged == "bid":
-            if order.price == best:
-                continue
+    higher = []
+    equal_normal = []
+    pegged = []
+    lower = []
+    for o in book.buys:
+        if o.pegged == "bid":
+            o.price = best
+            o.ts = book._next_ts()
+            pegged.append(o)
+        else:
+            p = o.price
+            if p is None:
+                lower.append(o)
+            elif p > best:
+                higher.append(o)
+            elif p == best:
+                equal_normal.append(o)
+            else:
+                lower.append(o)
 
-            for i, o in enumerate(book.buys):
-                if o is order:
-                    book.buys.pop(i)
-                    break
-
-            order.price = best
-            order.ts = book._next_ts()
-            limit.add_buy_limit(book, order)
+    book.buys = higher + equal_normal + pegged + lower
 
 # Atualiza ordens pegged ligadas ao melhor offer
 def update_pegged_to_offer(book):
     best = book.best_offer()
     if best is None:
-        to_delete = []
-        for oid, order in list(book.orders_by_id.items()):
-            if order.side == "sell" and order.pegged == "offer":
-                for i, o in enumerate(book.sells):
-                    if o is order:
-                        book.sells.pop(i)
-                        break
-                to_delete.append(oid)
-                print(f"Pegged order cancelled (no offer reference) {oid}")
-        for oid in to_delete:
-            book.orders_by_id.pop(oid, None)
+        new_sells = []
+        for o in book.sells:
+            if o.pegged == "offer":
+                if o.id is not None:
+                    book.orders_by_id.pop(o.id, None)
+                print(f"Pegged order cancelled (no offer reference) {o.id}")
+            else:
+                new_sells.append(o)
+        book.sells = new_sells
         return
 
-    for order in list(book.orders_by_id.values()):
-        if order.side == "sell" and order.pegged == "offer":
-            if order.price == best:
-                continue
+    below = []
+    equal_normal = []
+    pegged = []
+    above = []
+    for o in book.sells:
+        if o.pegged == "offer":
+            o.price = best
+            o.ts = book._next_ts()
+            pegged.append(o)
+        else:
+            p = o.price
+            if p is None:
+                above.append(o)
+            elif p < best:
+                below.append(o)
+            elif p == best:
+                equal_normal.append(o)
+            else:
+                above.append(o)
 
-            for i, o in enumerate(book.sells):
-                if o is order:
-                    book.sells.pop(i)
-                    break
-
-            order.price = best
-            order.ts = book._next_ts()
-            limit.add_sell_limit(book, order)
+    book.sells = below + equal_normal + pegged + above
