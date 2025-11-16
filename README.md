@@ -22,20 +22,17 @@ MorganStanleyEP/
 ## Como rodar
 
 ```bash
-# 1. Instalar Python 3.10+
-#    (no Windows marcar: "Add python.exe to PATH")
-
-# 2. Clonar o repositório
+# 1. Clonar o repositório
 git clone https://github.com/JoseVictorLDC/MorganStanleyEP.git
 cd MorganStanleyEP
 
-# 3. (Opcional) instalar dependências
+# 2. (Opcional) instalar dependências
 python -m pip install -r requirements.txt
 
-# 4. Entrar na pasta
+# 3. Entrar na pasta
 cd .\src\
 
-# 5. Executar o APP
+# 4. Executar o APP
 python app.py
 ```
 ---
