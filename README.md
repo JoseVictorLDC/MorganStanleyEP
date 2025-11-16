@@ -32,10 +32,11 @@ cd MorganStanleyEP
 # 3. (Opcional) instalar dependências
 python -m pip install -r requirements.txt
 
-# 4. Executar o CLI
-python -m src.cli
-# ou
-python src/cli.py
+# 4. Entrar na pasta
+cd .\src\
+
+# 5. Executar o APP
+python app.py
 ```
 ---
 
@@ -85,4 +86,3 @@ exit
 ```bash
 quit
 ```
-

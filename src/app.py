@@ -1,5 +1,5 @@
-# src/cli.py
-from .order_book import OrderBook
+# src/app.py
+from book import OrderBook
 
 def process_line(book: OrderBook, line: str):
     parts = line.strip().split()
@@ -88,6 +88,7 @@ def process_line(book: OrderBook, line: str):
     print("  print book                                   -> mostra o livro")
     print("  exit                                         -> sai do programa")
     print("=" * 68)
+
 
 def main():
     book = OrderBook()
