@@ -7,8 +7,10 @@ Objetivo: receber ordens de compra e venda via terminal, cruzá-las de forma jus
 
 ## Documentação acerca do projeto
 
-Acesse o pdf com as especificações de projeto.
+Acesse o pdf com as especificações de projeto.<br>
 [Clique aqui para abrir o PDF](MorganStanleyEP.pdf)
+
+---
 
 ## Estrutura do projeto
 
