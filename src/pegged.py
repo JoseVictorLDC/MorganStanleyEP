@@ -2,11 +2,20 @@
 from book import Order
 import limit
 
+# Funções auxiliares de ordenação de buy
+def _buy_sort_key(o: Order):
+    p = o.price if o.price is not None else float("-inf")
+    return (-p, o.ts)
+
+# Funções auxiliares de ordenação de sell
+def _sell_sort_key(o: Order):
+    p = o.price if o.price is not None else float("inf")
+    return (p, o.ts) 
+
 # Processa o comando peg e delega a criação da ordem
 def handle_peg(book, reference: str, side: str, qty: int, ts: int):
     reference = reference.lower()
     side = side.lower()
-
     if reference == "bid" and side == "buy":
         create_pegged_bid_buy(book, qty, ts)
     elif reference == "offer" and side == "sell":
@@ -20,7 +29,6 @@ def create_pegged_bid_buy(book, qty: int, ts: int):
     if best is None:
         print("Não há bid para fazer peg.")
         return
-
     order_id = book._next_id()
     order = Order(
         order_type="limit",
@@ -33,7 +41,7 @@ def create_pegged_bid_buy(book, qty: int, ts: int):
     )
     limit.add_buy_limit(book, order)
     book.orders_by_id[order_id] = order
-    print(f"Pegged order created: buy {qty} @ {best} (peg to bid) {order_id}")
+    print(f"Order created: buy {qty} @ {best} {order_id}")
 
 # Cria uma ordem pegged de venda atrelada ao melhor offer
 def create_pegged_offer_sell(book, qty: int, ts: int):
@@ -41,7 +49,6 @@ def create_pegged_offer_sell(book, qty: int, ts: int):
     if best is None:
         print("Não há offer para fazer peg.")
         return
-
     order_id = book._next_id()
     order = Order(
         order_type="limit",
@@ -54,7 +61,7 @@ def create_pegged_offer_sell(book, qty: int, ts: int):
     )
     limit.add_sell_limit(book, order)
     book.orders_by_id[order_id] = order
-    print(f"Pegged order created: sell {qty} @ {best} (peg to offer) {order_id}")
+    print(f"Order created: sell {qty} @ {best} {order_id}")
 
 # Atualiza ordens pegged ligadas ao melhor bid
 def update_pegged_to_bid(book):
@@ -71,27 +78,10 @@ def update_pegged_to_bid(book):
         book.buys = new_buys
         return
 
-    higher = []
-    equal_normal = []
-    pegged = []
-    lower = []
     for o in book.buys:
         if o.pegged == "bid":
             o.price = best
-            o.ts = book._next_ts()
-            pegged.append(o)
-        else:
-            p = o.price
-            if p is None:
-                lower.append(o)
-            elif p > best:
-                higher.append(o)
-            elif p == best:
-                equal_normal.append(o)
-            else:
-                lower.append(o)
-
-    book.buys = higher + equal_normal + pegged + lower
+    book.buys.sort(key=_buy_sort_key)
 
 # Atualiza ordens pegged ligadas ao melhor offer
 def update_pegged_to_offer(book):
@@ -108,24 +98,44 @@ def update_pegged_to_offer(book):
         book.sells = new_sells
         return
 
-    below = []
-    equal_normal = []
-    pegged = []
-    above = []
     for o in book.sells:
         if o.pegged == "offer":
             o.price = best
-            o.ts = book._next_ts()
-            pegged.append(o)
-        else:
-            p = o.price
-            if p is None:
-                above.append(o)
-            elif p < best:
-                below.append(o)
-            elif p == best:
-                equal_normal.append(o)
-            else:
-                above.append(o)
+    book.sells.sort(key=_sell_sort_key)
 
-    book.sells = below + equal_normal + pegged + above
+# Altera apenas a quantidade de uma ordem pegged
+def modify_pegged_qty(book, order_id: str, new_qty: int):
+    order = book.orders_by_id.get(order_id)
+    if order is None:
+        print("Order not found")
+        return
+    if order.pegged is None:
+        print("Ordem não é pegged. Use: modify order <id> <price> <qty> para ordens limit.")
+        return
+    old_qty = order.qty
+    if new_qty <= 0:
+        book_list = book.buys if order.side == "buy" else book.sells
+        for i, o in enumerate(book_list):
+            if o is order:
+                book_list.pop(i)
+                break
+        book.orders_by_id.pop(order_id, None)
+        print(f"Pegged order cancelled by qty change {order_id}")
+        return
+    if new_qty <= old_qty:
+        order.qty = new_qty
+        print(f"Order modified: {order.side} {new_qty} @ {order.price} {order_id}")
+        return
+    book_list = book.buys if order.side == "buy" else book.sells
+    for i, o in enumerate(book_list):
+        if o is order:
+            book_list.pop(i)
+            break
+
+    order.qty = new_qty
+    order.ts = book._next_ts()
+    if order.side == "buy":
+        limit.add_buy_limit(book, order)
+    else:
+        limit.add_sell_limit(book, order)
+    print(f"Order modified: {order.side} {new_qty} @ {order.price} {order_id}")

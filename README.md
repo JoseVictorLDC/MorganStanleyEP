@@ -5,17 +5,26 @@ Objetivo: receber ordens de compra e venda via terminal, cruzá-las de forma jus
 
 ---
 
+## Documentação acerca do projeto
+
+Acesse o pdf com as especificações de projeto.<br>
+[Clique aqui para abrir o PDF](MorganStanleyEP.pdf)
+
+---
+
 ## Estrutura do projeto
 
 ```text
 MorganStanleyEP/
 ├── src/
-│   ├── models.py       # dataclass Order
-│   ├── order_book.py   # OrderBook e lógica de matching
-│   └── cli.py          # interface de linha de comando (CLI)
+│   ├── app.py          # interface de linha de comando
+│   ├── book.py         # OrderBook e estado do livro
+│   ├── limit.py        # lógica de ordens limit
+│   ├── market.py       # lógica de ordens a mercado
+│   └── pegged.py       # lógica de ordens pegged
 │
-├── requirements.txt    # dependências (padrão: apenas stdlib)
-└── README.md
+├── requirements.txt    # dependências do projeto
+└── README.md           # documentação do projeto
 ```
 ---
 

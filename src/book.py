@@ -2,7 +2,6 @@
 from dataclasses import dataclass
 from typing import List, Dict, Optional
 
-
 # Representa uma ordem no livro
 @dataclass
 class Order:
@@ -13,7 +12,6 @@ class Order:
     ts: int = 0
     id: Optional[str] = None
     pegged: Optional[str] = None
-
 
 # Armazena o estado e operações do livro de ordens
 class OrderBook:
@@ -63,7 +61,6 @@ class OrderBook:
         rows = max(len(buy_rows), len(sell_rows), 1)
         buy_rows += [""] * (rows - len(buy_rows))
         sell_rows += [""] * (rows - len(sell_rows))
-
         buy_header = "Ordens de Compra"
         sell_header = "Ordens de Venda"
 
@@ -122,9 +119,9 @@ class OrderBook:
 
     # Modifica apenas a quantidade de uma ordem pegged
     def modify_order_qty_only(self, order_id: str, new_qty: int):
-        import limit
-
-        limit.modify_order_qty_only(self, order_id, new_qty)
+        import pegged
+        
+        pegged.modify_pegged_qty(self, order_id, new_qty)
 
     # Modifica preço e quantidade de uma ordem limit existente
     def modify_order(self, order_id: str, new_price: float, new_qty: int):
