@@ -1,7 +1,6 @@
 # Exercício de Programa – Morgan Stanley
 
-Mini **Matching Engine** em Python para um único ativo.  
-Objetivo: receber ordens de compra e venda via terminal, cruzá-las de forma justa e mostrar o livro de ofertas.
+**Matching Engine** em Python para um único ativo.  
 
 ---
 
